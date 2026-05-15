@@ -1,0 +1,22 @@
+# Build artifacts
+*.o
+*.out
+*.exe
+build/
+bin/
+
+# Benchmark binaries
+matmul_bench
+matmul_comparison
+*_bench
+
+# Results (keep JSON, ignore temporary)
+results/*.tmp
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
