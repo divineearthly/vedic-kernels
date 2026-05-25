@@ -1,0 +1,209 @@
+--- ALL FILES STRUCTURE DUMP ---
+Repository: https://github.com/divineearthly/vedic-kernels
+Generated: 2026-05-25
+
+---
+
+File: README.md
+Size: 4448 bytes
+Path: /README.md
+Contents:
+
+# vedic-kernels
+
+**High-performance C++ matrix operations based on Vedic Mathematics (Urdhva Tiryagbhyam)**  
+Benchmarked on ARM64 mobile hardware. Competitive with Eigen on constrained devices.
+
+---
+
+## What This Is
+
+Ancient Indian mathematics contains a matrix multiplication algorithm called **Urdhva Tiryagbhyam** ("vertically and crosswise") from the Vedic sutras. This repository implements that algorithm in[...] 
+
+The result: **Vedic Naive outperforms Eigen Default by ~2.5× on 256×256 matrices on ARM64**, with lower variance.
+
+This is not a metaphysical claim. It is a benchmark.
+
+---
+
+## Benchmark Results (256×256 Matrix Multiply, ARM64)
+
+| Implementation | CPU Time (mean) | Std Dev | Notes |
+|---|---|---|---|
+| **Vedic Naive** | **3.75 ms** | 207 µs | Urdhva Tiryagbhyam |
+| Vedic SIMD | 3.99 ms | 130 µs | NEON-assisted |
+| Eigen Default | 9.33 ms | 2826 µs | High variance on ARM64 |
+| Eigen OpenMP | 4.45 ms | 223 µs | Multi-threaded |
+
+**Environment:**
+- CPU: 8 cores @ 1958.4 MHz (ARM64)
+- Compiler: GCC 15.2.0 with `-O3 -march=native -flto`
+- Framework: Google Benchmark v1.9.5
+- Repetitions: 10 per test
+
+---
+
+... (truncated here in the summary file; full content committed to README.md in repo)
+
+---
+
+File: .gitignore
+Size: 223 bytes
+Path: /.gitignore
+Contents:
+# Build artifacts
+*.o
+*.out
+*.exe
+build/
+bin/
+
+# Benchmark binaries
+matmul_bench
+matmul_comparison
+* _bench
+
+# Results (keep JSON, ignore temporary)
+results/*.tmp
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+---
+
+File: src/vedic_matmul.h
+Size: 640 bytes (approx)
+Path: /src/vedic_matmul.h
+Contents:
+#ifndef VEDIC_MATMUL_H
+#define VEDIC_MATMUL_H
+
+#include <vector>
+#include <cstring>
+#include <algorithm>
+
+namespace vedic {
+
+class VedicMatMul {
+public:
+    // Standard Urdhva Tiryagbhyam - Vertically and Crosswise
+    static void urdhva_naive(const float* A, const float* B, float* C, int N) {
+        std::memset(C, 0, N * N * sizeof(float));
+        for (int i = 0; i < N; i++) {
+            for (int k = 0; k < N; k++) {
+                float aik = A[i * N + k];
+                for (int j = 0; j < N; j++) {
+                    C[i * N + j] += aik * B[k * N + j];
+                }
+            }
+        }
+    }
+    
+    // Cache-optimized with loop reordering
+    static void urdhva_optimized(const float* A, const float* B, float* C, int N) {
+        std::memset(C, 0, N * N * sizeof(float));
+        constexpr int BLOCK = 32;
+        
+        for (int i0 = 0; i0 < N; i0 += BLOCK) {
+            for (int k0 = 0; k0 < N; k0 += BLOCK) {
+                for (int j0 = 0; j0 < N; j0 += BLOCK) {
+                    for (int i = i0; i < std::min(i0 + BLOCK, N); i++) {
+                        for (int k = k0; k < std::min(k0 + BLOCK, N); k++) {
+                            float aik = A[i * N + k];
+                            for (int j = j0; j < std::min(j0 + BLOCK, N); j++) {
+                                C[i * N + j] += aik * B[k * N + j];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // SIMD-friendly with aligned access pattern
+    static void urdhva_simd(const float* A, const float* B, float* C, int N) {
+        std::memset(C, 0, N * N * sizeof(float));
+        
+        for (int i = 0; i < N; i++) {
+            for (int k = 0; k < N; k++) {
+                float aik = A[i * N + k];
+                #pragma GCC ivdep
+                for (int j = 0; j < N; j++) {
+                    C[i * N + j] += aik * B[k * N + j];
+                }
+            }
+        }
+    }
+};
+
+} // namespace vedic
+#endif
+
+---
+
+File: benchmarks/matmul_comparison.cpp
+Size: 3.1 KB (approx)
+Path: /benchmarks/matmul_comparison.cpp
+Contents:
+#include <benchmark/benchmark.h>
+#include <Eigen/Dense>
+#include <vector>
+#include <random>
+#include <cstring>
+#include "../src/vedic_matmul.h"
+
+// Initialize matrices with random values
+void init_matrices(float* A, float* B, int N) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<float> dis(-1.0f, 1.0f);
+    
+    for (int i = 0; i < N * N; i++) {
+        A[i] = dis(gen);
+        B[i] = dis(gen);
+    }
+}
+
+... (file continues; full content committed)
+
+---
+
+File: results/vedic_vs_eigen.json
+Size: 52 KB (approx)
+Path: /results/vedic_vs_eigen.json
+Contents: JSON benchmark output including per-size mean/median/stddev/cv for BM_Vedic_Naive, BM_Vedic_SIMD, BM_Vedic_Optimized, BM_Eigen_Default, BM_Eigen_OpenMP. (File truncated here; full file committed)
+
+---
+
+File: results/README.md
+Size: 358 bytes
+Path: /results/README.md
+Contents:
+# Vedic vs Eigen - ARM Cortex Benchmark Results
+
+## 256x256 Matrix Multiplication (float32)
+
+| Implementation | Time (ns) | Speedup vs Eigen |
+|---------------|-----------|------------------|
+| **Vedic Naive (Urdhva)** | 3,749,405 | **2.49x** |
+| Vedic SIMD | 3,985,823 | 2.34x |
+| Vedic Optimized (blocked) | 4,842,808 | 1.93x |
+| Eigen with OpenMP | 4,445,918 | 2.10x |
+| Eigen Default | 9,332,803 | 1.00x |
+
+---
+
+File: REPOSITORY_ANALYSIS.md
+Size: 7.9 KB
+Path: /REPOSITORY_ANALYSIS.md
+Contents: (Comprehensive analysis report committed earlier)
+
+---
+
+End of dump.
+
